@@ -33,16 +33,13 @@ public class BookService : IBookService
     public async Task<BookPaginationResponseModel> GetAllBooksAsync(bool? isAvailable, int page, int perPage, string search)
     {
         var booksQuery = _bookRepository.GetAllQueryable();
-        if (isAvailable.HasValue)
-        {
-            booksQuery = booksQuery.Where(b => b.IsAvailable == isAvailable);
-        }
 
-
-        if (!string.IsNullOrEmpty(search))
-        {
-            booksQuery = booksQuery.Where(b => b.Title.Contains(search) || b.Author.Contains(search) || b.Category.Name.Contains(search));
-        }
+        booksQuery.Where(b =>
+               (!isAvailable.HasValue) || isAvailable.HasValue && b.IsAvailable == isAvailable
+            && (string.IsNullOrEmpty(search) || !string.IsNullOrEmpty(search) && b.Title.Contains(search)
+                                             || !string.IsNullOrEmpty(search) && b.Author.Contains(search)
+                                             || !string.IsNullOrEmpty(search) && b.Category.Name.Contains(search))
+        );
 
         var pagedBooks = await booksQuery.Skip((page - 1) * perPage).Take(perPage).ToListAsync();
         var response = new BookPaginationResponseModel

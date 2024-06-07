@@ -55,34 +55,36 @@ public class BorrowingRequestService : IBorrowingRequestService
     public async Task<BorrowingPaginationResponseModel> GetAllRequestsAsync(Guid? requestorId, Guid? approverId, BorrowingStatusType? status, int page, int perPage, string search)
     {
         var requestsQuery = _borrowingRequestRepository.GetAllQueryable();
-        if (requestorId != null) requestsQuery = requestsQuery.Where(r => r.RequestorId == requestorId);
-        if (approverId != null) requestsQuery = requestsQuery.Where(r => r.ApproverId == approverId);
-        if (status != null) requestsQuery = requestsQuery.Where(r => r.Status == status);
-        if (!string.IsNullOrEmpty(search)) requestsQuery = requestsQuery
-            .Where(r => r.Requestor.FullName.Contains(search)
-                    || r.Requestor.Username.Contains(search)
-                    || r.RequestorId.ToString().Contains(search)
-                    || r.Approver.FullName.Contains(search)
-                    || r.Approver.Username.Contains(search));
+        requestsQuery = requestsQuery.Where(r =>
+                (requestorId == null) || requestorId != null && r.RequestorId == requestorId
+            && (approverId == null) || approverId != null && r.ApproverId == approverId
+            && (status == null) || status != null && r.Status == status
+            && (string.IsNullOrEmpty(search) || r.Requestor.FullName.Contains(search)
+                || r.Requestor.Username.Contains(search)
+                || r.RequestorId.ToString().Contains(search)
+                || r.Approver.FullName.Contains(search)
+                || r.Approver.Username.Contains(search))
+        );
 
-        var pagedRequests = await requestsQuery.OrderByDescending(r => r.RequestedAt).Skip((page - 1) * perPage).Take(perPage).ToListAsync();
-        var responseRequests = pagedRequests.Select(_mapper.Map<BorrowingResponseModel>).ToList();
-        for (int i = 0; i < pagedRequests.Count(); i++)
+        var pagedRequests = await requestsQuery
+            .OrderByDescending(r => r.RequestedAt)
+            .Skip((page - 1) * perPage)
+            .Take(perPage)
+            .ToListAsync();
+
+        var responseRequests = pagedRequests.Select(r =>
         {
-            var request = pagedRequests.ElementAt(i);
-            var response = responseRequests.ElementAt(i);
-            response.Books = [];
-            foreach (var details in request.Details)
-            {
-                var book = await _bookRepository.GetByIdAsync(details.BookId);
-                response.Books.Add(_mapper.Map<BookResponseModel>(book));
-            }
-        }
+            var response = _mapper.Map<BorrowingResponseModel>(r);
+            response.Books = r.Details.Select(d => _mapper.Map<BookResponseModel>(d.Book)).ToList();
+            return response;
+        }).ToList();
+
         var paginatedResponse = new BorrowingPaginationResponseModel
         {
             TotalCount = await requestsQuery.CountAsync(),
             Data = responseRequests
         };
+
         return paginatedResponse;
     }
 

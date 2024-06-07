@@ -14,6 +14,7 @@ public class BorrowingRequestRepository : GenericRepository<BookBorrowingRequest
                 .Include(r => r.Requestor)
                 .Include(r => r.Approver)
                 .Include(r => r.Details)
+                .ThenInclude(d => d.Book)
                 .ToListAsync();
     }
 
